@@ -1,166 +1,235 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts-upgradeable@4.8.0/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable@4.8.0/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+contract wXLA is Initializable, 
+ERC20Upgradeable, 
+ERC20BurnableUpgradeable, 
+PausableUpgradeable, 
+// AccessControlUpgradeable, 
+ERC20PermitUpgradeable, UUPSUpgradeable {
 
-contract Bep20_XLA is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, PausableUpgradeable, AccessControlUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
-    // struct RoleData {
-    //     mapping(address => bool) members;
-    //     bytes32 adminRole;
-    // };
-    // mapping(bytes32 => RoleData) private _roles;
-
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-    address public constant ADMIN_ADDRESS = 0xCD86F3688bFe20D0a77f05AE2CCFce58Ee4AeA4D;
-    bool private _haveInit = false;
-    uint256 intVers = 0;
+    bool public haveInit;
     bool private _paused;
-    mapping (address => bool) public isBlackListed;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+    }
+
+     function initialize(uint8 _currentVersion) initializer public onlyOwner {
+
+        require(!haveInit, "ERC20: Contract already initialize");
+        CURRENT_VERSION=_currentVersion;
         _paused = false;
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(MINTER_ROLE, _msgSender());
-        _setupRole(PAUSER_ROLE, _msgSender());
-        // if(!_isInitialized) {
-        //     _isInitialized = true;
-        //initialize();
-        // }
+        haveInit = true;
+        __ERC20_init(name(), symbol());
+        __ERC20Burnable_init();
+        __Pausable_init();
+        // __AccessControl_init();
+        __ERC20Permit_init(name());
+        __UUPSUpgradeable_init();
+        // totalSupply = 0l;
     }
 
-    function hasRole(bytes32 role, address account) public view override returns (bool) {
-        return account == ADMIN_ADDRESS;
+    /**
+     * @dev Contract ownership
+     */  
+    function owner() public pure returns(address){
+        return 0xCD86F3688bFe20D0a77f05AE2CCFce58Ee4AeA4D;
     }
 
-    function owner() public returns(address){
-        return ADMIN_ADDRESS;
+    function isOwner(address account) public pure returns(bool){
+        return owner() == account;
     }
+
+    modifier onlyOwner {
+        require(isOwner(msg.sender),"Only owner allowed");
+        _;
+    }
+
+    function burner() public pure returns(address){
+        return 0xCD86F3688bFe20D0a77f05AE2CCFce58Ee4AeA4D;
+    }
+   
     /**
      * @dev Upgrade coin function
      */    
-    function initialize() initializer public {
-        if(_haveInit == false) {
-            _haveInit = true;
-            __ERC20_init("XLA Test On Bep20", "Bep20_XLA");
-            __ERC20Burnable_init();
-            __Pausable_init();
-            __AccessControl_init();
-            __ERC20Permit_init("XLA Test On Bep20");
-            __UUPSUpgradeable_init();
-            // totalSupply = 0l;
-        }
-        _grantRole(DEFAULT_ADMIN_ROLE, ADMIN_ADDRESS);
-        _grantRole(PAUSER_ROLE, ADMIN_ADDRESS);
-        _grantRole(MINTER_ROLE, ADMIN_ADDRESS);
-        _grantRole(BURNER_ROLE, ADMIN_ADDRESS);
-        _grantRole(UPGRADER_ROLE, ADMIN_ADDRESS);
-        _setupRole(DEFAULT_ADMIN_ROLE, ADMIN_ADDRESS);
-        _setupRole(PAUSER_ROLE, ADMIN_ADDRESS);
-        _setupRole(MINTER_ROLE, ADMIN_ADDRESS);
-        _setupRole(BURNER_ROLE, ADMIN_ADDRESS);
-        _setupRole(UPGRADER_ROLE, ADMIN_ADDRESS);
+    uint256 public CURRENT_VERSION;
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        onlyOwner
+        override
+    { 
     }
+    
+    function updateTo(address newImplementation) external onlyOwner{
+
+    }
+
+    function getCurrentVersion() public view returns(uint256) {
+        return CURRENT_VERSION;
+    }
+
     /**
-     * @dev Returns the name of the token.
-     */
+     * Token Information
+     **/
     function name() public view virtual override returns (string memory) {
-        return "XLA Test On Bep20";
+        return "XLA ERC20";
     }
-
-    function currentAddress() public view returns (address) {
-        return _msgSender();
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
+   
     function symbol() public view virtual override returns (string memory) {
-        return "Bep20_XLA";
+        return "wXLA";
     }
 
     function decimals() public view virtual override returns (uint8) {
         return 2;
     }
 
-    function burn(uint256 value) public onlyRole(BURNER_ROLE) override {
-        // require(accountBalance >= value, "ERC20: burn amount exceeds balance");
+    /**
+     * Burning
+     **/
+    function burn(uint256 value) public onlyOwner override{
+        require(0 < value, "ERC20: Amount request lower than 0");
         super._burn(msg.sender, value);
     }
 
-     function burnFrom(address from, uint256 amount) public  override {
-        require(hasRole(BURNER_ROLE, _msgSender()), "must have burner role to burn"); 
-        _burn(from, amount);
-    }
- 
-    function mint(address to, uint256 amount) public{
-        require(hasRole(MINTER_ROLE, _msgSender()), "must have minter role to mint");
-        _mint(to, amount);
+    function burnFrom(address from, uint256 amount) public  onlyOwner override{
+        // require(0 < amount, "ERC20: Amount request lower than 0");
+        require(balanceOf(from) < amount, "ERC20: burn amount exceeds balance");
+        require(totalSupply() >= amount, "ERC20: burn amount exceeds totalSupply");
+        super._burn(from, amount);
     }
 
-    function pause() public {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "must have pauser role to pause");
+     /**
+     * Minting
+     **/
+    function mint(address to, uint256 amount) public onlyOwner{
+        // require(0 >= amount, "ERC20: Amount request lower than 0");
+        super._mint(to, amount);
+    }
+
+    /**
+     * Pauseable methods.
+     */
+    function pause() public onlyOwner{
         _pause();
     }
 
-    function _pause() internal virtual whenNotPaused override {
+    function _pause() internal virtual whenNotPaused onlyOwner override{
         _paused = true;
-        emit Paused(_msgSender());
+        emit Paused(msg.sender);
     }
 
-    function unpause() public {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "must have pauser role to unpause");
+    function unpause() public onlyOwner{
         _unpause();
     }
 
-    function _unpause() internal virtual whenPaused override{
+    function _unpause() internal virtual whenPaused onlyOwner override{
         _paused = false;
-        emit Unpaused(_msgSender());
+        emit Unpaused(msg.sender);
     }
 
 
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        onlyRole(UPGRADER_ROLE)
-        override
-    { }
-
-    function upgradeTo(address newImplementation, bytes memory) public {
-         require(hasRole(UPGRADER_ROLE, _msgSender()), "must have upgrader role to upgrade");
-
+    /**
+    * Swap
+    */
+    mapping (address => bool) internal blackLists;
+    function isBlacklists(address user) public view virtual returns (bool) {
+        require(!blackLists[user], "Address is blacklisted");
+        return false;
     }
 
-    function addBlackList (address _evilUser) public  {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "must have admin to blacklist"); 
-        isBlackListed[_evilUser] = true;
-        emit AddedBlackList(_evilUser);
-      
+    function addBlackList (address user) public virtual {
+        blackLists[user] = true;
+        emit AddedBlackList(user);
     }
 
-    function removeBlackList (address _clearedUser) public  {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "must have admin to remove blacklist"); 
-        isBlackListed[_clearedUser] = false;
-        emit RemovedBlackList(_clearedUser);
+    function removeBlackList (address user) public virtual{
+        blackLists[user] = false;
+        emit RemovedBlackList(user);
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal whenNotPaused override {
-        require(!isBlackListed[from], "Sender address is blacklisted");
-        require(!isBlackListed[to], "Receiver address is blacklisted");
-        super._beforeTokenTransfer(from, to, amount);
-    }
-    
     event AddedBlackList(address _user);
     event RemovedBlackList(address _user);
+
+    struct XLASwap {
+        bytes32 id;
+        address swapAccount;
+        string xlaAddress;
+        uint256 amount;
+        uint status;
+        bool toXLA;
+        string xlaHash;
+        uint256 swapTimestamp;
+    }
+
+    event XLASwapCreated(XLASwap swap);
+
+    mapping (bytes32 => XLASwap) internal XLASwapData;
+    bytes32[] internal XLASwapLists;
+
+    function XLASwapAdd(string calldata xla_address, address user, uint256 amount, bool toXLA, uint status, string calldata xlaHash) external virtual  returns (bytes32){
+        require(amount > 0 && amount < (2**256 - 1), "XLASwap: Invalid amount");
+        if(toXLA){
+            require(balanceOf(user) < amount, "ERC20: burn amount exceeds balance");
+        } else {
+
+        }
+        
+
+        bytes32 id = keccak256(abi.encodePacked(block.number, block.timestamp, xla_address,user,amount,toXLA));
+        require(XLASwapData[id].id != id, "Transaction already generated for swap");
+        XLASwap memory swap;
+        swap.swapAccount = user;
+        swap.amount = amount;
+        swap.toXLA = toXLA;
+        swap.status = 0;
+        swap.xlaHash = xlaHash;
+        swap.status = status;
+        swap.xlaAddress = xla_address;
+        swap.swapTimestamp = block.timestamp;
+        swap.id = id;
+        XLASwapLists.push(id);
+        XLASwapData[id] = swap;
+        emit XLASwapCreated(swap);
+
+        return id;
+    }
+
+    function XLASwapById(bytes32 id) public view returns(XLASwap memory) {
+        require(XLASwapData[id].amount > 0, "XLASwap: Invalid swap");
+        return XLASwapData[id];
+    }
+
+
+    function XLASwapTransactions(uint page) public view virtual returns(bytes32[] memory) {
+        uint256 length = XLASwapLists.length;
+        require(length > 0, "XLASwap: Empty swap transaction");
+        uint256 start = page * 100;
+        require(length > start, "XLASwap: Page is bigger than swap transaction length");
+        uint256 end = start + 100;
+
+        if(end > length) {
+            end = length;
+        }
+
+        // require(end <= length, "XLASwap: End record is bigger than transaction length");
+
+        bytes32[] memory swaps = new bytes32[](end-start);
+        uint idx = 0;
+        for (uint256 i=start; i < end;i++ ) {
+            swaps[idx] = XLASwapLists[i];
+            idx++;
+        }
+        return swaps;
+    }
+
 }
