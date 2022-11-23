@@ -4,76 +4,45 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 contract wXLA is Initializable, 
 ERC20Upgradeable, 
 ERC20BurnableUpgradeable, 
 PausableUpgradeable, 
-// AccessControlUpgradeable, 
+AccessControlUpgradeable, 
 ERC20PermitUpgradeable, UUPSUpgradeable {
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    bool public haveInit;
-    bool private _paused;
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-     function initialize(uint8 _currentVersion) initializer public onlyOwner {
-
-        require(!haveInit, "ERC20: Contract already initialize");
+     function initialize(uint8 _currentVersion) initializer public {
         CURRENT_VERSION=_currentVersion;
-        _paused = false;
-        haveInit = true;
         __ERC20_init(name(), symbol());
         __ERC20Burnable_init();
         __Pausable_init();
-        // __AccessControl_init();
+        __AccessControl_init();
         __ERC20Permit_init(name());
         __UUPSUpgradeable_init();
-        // totalSupply = 0l;
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(PAUSER_ROLE, _msgSender());
+        _grantRole(MINTER_ROLE, _msgSender());
+        _grantRole(UPGRADER_ROLE, _msgSender());
     }
 
-    /**
-     * @dev Contract ownership
-     */  
-    function owner() public pure returns(address){
-        return 0xCD86F3688bFe20D0a77f05AE2CCFce58Ee4AeA4D;
-    }
-
-    function isOwner(address account) public pure returns(bool){
-        return owner() == account;
-    }
-
-    modifier onlyOwner {
-        require(isOwner(msg.sender),"Only owner allowed");
-        _;
-    }
-
-    function burner() public pure returns(address){
-        return 0xCD86F3688bFe20D0a77f05AE2CCFce58Ee4AeA4D;
-    }
-   
     /**
      * @dev Upgrade coin function
      */    
-    uint256 public CURRENT_VERSION;
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        onlyOwner
-        override
-    { 
-    }
-    
-    function updateTo(address newImplementation) external onlyOwner{
-
-    }
-
+    uint256 internal CURRENT_VERSION;
     function getCurrentVersion() public view returns(uint256) {
         return CURRENT_VERSION;
     }
@@ -93,124 +62,114 @@ ERC20PermitUpgradeable, UUPSUpgradeable {
         return 2;
     }
 
-    /**
-     * Burning
-     **/
-    function burn(uint256 value) public onlyOwner override{
-        require(0 < value, "ERC20: Amount request lower than 0");
-        super._burn(msg.sender, value);
-    }
-
-    function burnFrom(address from, uint256 amount) public  onlyOwner override{
-        // require(0 < amount, "ERC20: Amount request lower than 0");
-        require(balanceOf(from) < amount, "ERC20: burn amount exceeds balance");
-        require(totalSupply() >= amount, "ERC20: burn amount exceeds totalSupply");
-        super._burn(from, amount);
-    }
-
-     /**
-     * Minting
-     **/
-    function mint(address to, uint256 amount) public onlyOwner{
-        // require(0 >= amount, "ERC20: Amount request lower than 0");
-        super._mint(to, amount);
-    }
-
-    /**
-     * Pauseable methods.
-     */
-    function pause() public onlyOwner{
+    function pause() public onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function _pause() internal virtual whenNotPaused onlyOwner override{
-        _paused = true;
-        emit Paused(msg.sender);
-    }
-
-    function unpause() public onlyOwner{
+    function unpause() public onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
-    function _unpause() internal virtual whenPaused onlyOwner override{
-        _paused = false;
-        emit Unpaused(msg.sender);
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+        _mint(to, amount);
     }
 
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        onlyRole(UPGRADER_ROLE)
+        override
+    {}
 
-    /**
+    function _beforeTokenTransfer(address from, address to, uint256 amount)
+        internal
+        whenNotPaused
+        override
+    {
+        super._beforeTokenTransfer(from, to, amount);
+    }
+
+    // mapping (address => bool) internal blackLists;
+    // function isBlacklists(address user) view external onlyRole(DEFAULT_ADMIN_ROLE) returns (bool) {
+    //     require(!blackLists[user], "Address is blacklisted");
+    //     return false;
+    // }
+
+    // function addBlackList (address user)  external onlyRole(DEFAULT_ADMIN_ROLE) {
+    //     blackLists[user] = true;
+    //     emit AddedBlackList(user);
+    // }
+
+    // function removeBlackList (address user) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    //     blackLists[user] = false;
+    //     emit RemovedBlackList(user);
+    // }
+
+    // event AddedBlackList(address _user);
+    // event RemovedBlackList(address _user);
+
+  /**
     * Swap
     */
-    mapping (address => bool) internal blackLists;
-    function isBlacklists(address user) public view virtual returns (bool) {
-        require(!blackLists[user], "Address is blacklisted");
-        return false;
-    }
-
-    function addBlackList (address user) public virtual {
-        blackLists[user] = true;
-        emit AddedBlackList(user);
-    }
-
-    function removeBlackList (address user) public virtual{
-        blackLists[user] = false;
-        emit RemovedBlackList(user);
-    }
-
-    event AddedBlackList(address _user);
-    event RemovedBlackList(address _user);
-
     struct XLASwap {
-        bytes32 id;
-        address swapAccount;
-        string xlaAddress;
+        bytes32 digest;
+        address account;
         uint256 amount;
-        uint status;
-        bool toXLA;
-        string xlaHash;
-        uint256 swapTimestamp;
+        bool toSwap;
     }
 
-    event XLASwapCreated(XLASwap swap);
+    event XLASwapCreated(bytes32 indexed digest);
 
     mapping (bytes32 => XLASwap) internal XLASwapData;
     bytes32[] internal XLASwapLists;
 
-    function XLASwapAdd(string calldata xla_address, address user, uint256 amount, bool toXLA, uint status, string calldata xlaHash) external virtual  returns (bytes32){
-        require(amount > 0 && amount < (2**256 - 1), "XLASwap: Invalid amount");
-        if(toXLA){
-            require(balanceOf(user) < amount, "ERC20: burn amount exceeds balance");
-        } else {
+    // function XLASwapAdd(address signer, address spender, bytes32 ipfsHash, uint256 amount, bool toSwap, uint256 deadline) pure external onlyRole(MINTER_ROLE) (bytes32 memory){
+    //     require(signer != address(0),"XLASwap: Invalid signer");
+    //     require(spender != address(0),"XLASwap: Invalid spender");
+    //     uint256 max = (2**256 - 1);
+    //     require(0 < amount || max > amount, "XLASwap: Invalid swap amount");  
 
+    //     if(!toSwap) {
+    //         require(balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
+    //     }
+
+    //     require(XLASwapData[ipfsHash].account == address(0),"XLASwap: Swap already exists");
+    //     require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+
+    //     bytes32 msgHash = keccak256(abi.encode(
+            
+    //         signer, spender, ipfsHash, amount, toSwap, deadline, nonces(spender)
+    //     ));
+    // }
+
+    function XLASwapRelay(address owner, address spender, bytes32 ipfsHash, uint256 amount, bool toSwap, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external onlyRole(MINTER_ROLE){
+        require(owner != address(0),"XLASwap: Invalid signer");
+        require(spender != address(0),"XLASwap: Invalid spender");
+        uint256 max = (2**256 - 1);
+        require(0 < amount || max > amount, "XLASwap: Invalid swap amount");  
+
+        if(!toSwap) {
+            require(balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
         }
-        
 
-        bytes32 id = keccak256(abi.encodePacked(block.number, block.timestamp, xla_address,user,amount,toXLA));
-        require(XLASwapData[id].id != id, "Transaction already generated for swap");
-        XLASwap memory swap;
-        swap.swapAccount = user;
-        swap.amount = amount;
-        swap.toXLA = toXLA;
-        swap.status = 0;
-        swap.xlaHash = xlaHash;
-        swap.status = status;
-        swap.xlaAddress = xla_address;
-        swap.swapTimestamp = block.timestamp;
-        swap.id = id;
-        XLASwapLists.push(id);
-        XLASwapData[id] = swap;
-        emit XLASwapCreated(swap);
-
-        return id;
+        require(XLASwapData[ipfsHash].account == address(0),"XLASwap: Swap already exists");
+        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        if(toSwap) {
+            _distributeTax(amount);
+        }
+        permit(owner, spender, amount,deadline, v, r, s);
+        emit XLASwapCreated(ipfsHash);
+    }
+    
+    function _distributeTax(amount) internal {
+        //TAX Logic
     }
 
-    function XLASwapById(bytes32 id) public view returns(XLASwap memory) {
-        require(XLASwapData[id].amount > 0, "XLASwap: Invalid swap");
-        return XLASwapData[id];
+    function XLASwapById(bytes32 ipfsHash) public view returns(XLASwap memory) {
+        require(XLASwapData[ipfsHash].account != address(0),"Invalid swap id");
+        return XLASwapData[ipfsHash];
     }
 
-
-    function XLASwapTransactions(uint page) public view virtual returns(bytes32[] memory) {
+    function XLASwapTransactions(uint page)public view virtual returns(bytes32[] memory) {
         uint256 length = XLASwapLists.length;
         require(length > 0, "XLASwap: Empty swap transaction");
         uint256 start = page * 100;
