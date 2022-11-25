@@ -8,24 +8,45 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+// import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+// import "github.com/provable-things/ethereum-api/provableAPI.sol";
+// import "@openzeppelin/contracts-upgradeable/finance/PaymentSplitterUpgradeable.sol";
+import "hardhat/console.sol";
 
 contract wXLA is Initializable, 
 ERC20Upgradeable, 
 ERC20BurnableUpgradeable, 
 PausableUpgradeable, 
 AccessControlUpgradeable, 
-ERC20PermitUpgradeable, UUPSUpgradeable {
+ERC20PermitUpgradeable, UUPSUpgradeable
+{
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-
     // constructor() {
     //     _disableInitializers();
     // }
+    /* For tests make sure to comment out on live */
+    function testSetOwner(address owner) external {
+        _grantRole(DEFAULT_ADMIN_ROLE, owner);
+        _grantRole(PAUSER_ROLE, owner);
+        _grantRole(MINTER_ROLE, owner);
+        _grantRole(UPGRADER_ROLE, owner);
+    }
 
-     function initialize(uint8 _currentVersion) initializer public {
+    function testApprove(
+        address owner,
+        address spender,
+        uint256 amount
+    ) external {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _approve(owner, spender, amount);
+    }
+
+    function initialize(uint8 _currentVersion) initializer public {
         CURRENT_VERSION=_currentVersion;
         __ERC20_init(name(), symbol());
         __ERC20Burnable_init();
@@ -33,6 +54,7 @@ ERC20PermitUpgradeable, UUPSUpgradeable {
         __AccessControl_init();
         __ERC20Permit_init(name());
         __UUPSUpgradeable_init();
+        // __PaymentSplitter_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(PAUSER_ROLE, _msgSender());
         _grantRole(MINTER_ROLE, _msgSender());
@@ -71,7 +93,8 @@ ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
     function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
-        _mint(to, amount);
+       // _mint(_msgSender(), amount * 0.01);
+       _mint(to, amount);
     }
 
     function _authorizeUpgrade(address newImplementation)
@@ -115,54 +138,66 @@ ERC20PermitUpgradeable, UUPSUpgradeable {
         address account;
         uint256 amount;
         bool toSwap;
+        uint256 height;
     }
 
-    event XLASwapCreated(bytes32 indexed digest);
+    event XLASwapCreated(XLASwap indexed data);
 
     mapping (bytes32 => XLASwap) internal XLASwapData;
     bytes32[] internal XLASwapLists;
 
-    // function XLASwapAdd(address signer, address spender, bytes32 ipfsHash, uint256 amount, bool toSwap, uint256 deadline) pure external onlyRole(MINTER_ROLE) (bytes32 memory){
-    //     require(signer != address(0),"XLASwap: Invalid signer");
-    //     require(spender != address(0),"XLASwap: Invalid spender");
-    //     uint256 max = (2**256 - 1);
-    //     require(0 < amount || max > amount, "XLASwap: Invalid swap amount");  
+    function xlaSetSalt(uint8 i, string calldata salt) public onlyRole(MINTER_ROLE) {
+        XlaSalt[i] = keccak256(abi.encodePacked(salt));
+    }
 
-    //     if(!toSwap) {
-    //         require(balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
-    //     }
+    function xlaGetSalt(uint8 i) view public onlyRole(MINTER_ROLE)  returns(bytes32) {
+        require(XlaSalt[i] != bytes32(0), "Invalid hash pointer");
+        return XlaSalt[i];
+    }
 
-    //     require(XLASwapData[ipfsHash].account == address(0),"XLASwap: Swap already exists");
-    //     require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
-
-    //     bytes32 msgHash = keccak256(abi.encode(
-            
-    //         signer, spender, ipfsHash, amount, toSwap, deadline, nonces(spender)
-    //     ));
-    // }
-
-    function XLASwapRelay(address owner, address spender, bytes32 ipfsHash, uint256 amount, bool toSwap, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external onlyRole(MINTER_ROLE){
-        require(owner != address(0),"XLASwap: Invalid signer");
-        require(spender != address(0),"XLASwap: Invalid spender");
+    function xlaMint(address owner,bytes32 ipfsHash, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable {
+        require(block.timestamp <= deadline, "XLASwap: expired deadline");
+        require(owner != address(0) && hasRole(MINTER_ROLE, owner), "XLASwap: Invalid owner");
         uint256 max = (2**256 - 1);
-        require(0 < amount || max > amount, "XLASwap: Invalid swap amount");  
-
-        if(!toSwap) {
-            require(balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
-        }
-
-        require(XLASwapData[ipfsHash].account == address(0),"XLASwap: Swap already exists");
-        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
-        if(toSwap) {
-            _distributeTax(amount);
-        }
-        permit(owner, spender, amount,deadline, v, r, s);
-        emit XLASwapCreated(ipfsHash);
+        require(0 < amount && max > amount, "XLASwap: Invalid swap amount");  
+        require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
+        address spender = msg.sender;
+        require(spender != address(0),"XLASwap: Invalid spender");
+        require(XlaSalt[1] != bytes32(0),"XLASwap: Salt does not exists");
+        uint256 nonce = nonces(spender);
+        bytes32 structHash = keccak256(abi.encode(XlaSalt[1], owner, spender, true, ipfsHash, amount, deadline, nonce));
+        bytes32 hash = _hashTypedDataV4(structHash);
+        bytes32 es = ECDSAUpgradeable.toEthSignedMessageHash(hash);
+        address signer = ECDSAUpgradeable.recover(es, v, r, s);
+        require(signer == owner, "XLASwap: invalid signature");
+        _mint(spender, amount);
+        _useNonce(spender);
+        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+        emit XLASwapCreated(XLASwapData[ipfsHash]);
     }
-    
-    function _distributeTax(amount) internal {
-        //TAX Logic
+
+    function xlaMintGasless(address spender,bytes32 ipfsHash, uint256 amount) external payable  onlyRole(MINTER_ROLE) {
+        uint256 max = (2**256 - 1);
+        require(0 < amount && max > amount, "XLASwap: Invalid swap amount");  
+        require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
+        require(spender != address(0),"XLASwap: Invalid spender");
+        _mint(spender, amount);
+        _useNonce(spender);
+        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+        emit XLASwapCreated(XLASwapData[ipfsHash]);
     }
+
+    function xlaBurnGasless(address spender, bytes32 ipfsHash, uint256 amount) external payable onlyRole(MINTER_ROLE){
+        uint256 max = (2**256 - 1);
+        require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
+        require(spender != address(0),"XLASwap: Invalid spender");
+        require(0 < amount && max > amount && balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
+        _burn(spender, amount);
+        _spendAllowance(spender, msg.sender, amount);
+        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+        emit XLASwapCreated(XLASwapData[ipfsHash]);
+    }
+
 
     function XLASwapById(bytes32 ipfsHash) public view returns(XLASwap memory) {
         require(XLASwapData[ipfsHash].account != address(0),"Invalid swap id");
@@ -190,5 +225,7 @@ ERC20PermitUpgradeable, UUPSUpgradeable {
         }
         return swaps;
     }
+    mapping (uint8 => bytes32) private XlaSalt;
+    // mapping (bytes32 => bool) internal XlaHashed;
 
 }
