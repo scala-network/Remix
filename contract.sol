@@ -27,25 +27,7 @@ ERC20PermitUpgradeable, UUPSUpgradeable
     // constructor() {
     //     _disableInitializers();
     // }
-    /* For tests make sure to comment out on live */
-    function testSetOwner(address owner) external {
-        _grantRole(DEFAULT_ADMIN_ROLE, owner);
-        _grantRole(PAUSER_ROLE, owner);
-        _grantRole(MINTER_ROLE, owner);
-        _grantRole(UPGRADER_ROLE, owner);
-    }
-
-    function testApprove(
-        address owner,
-        address spender,
-        uint256 amount
-    ) external {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
-        _approve(owner, spender, amount);
-    }
-
+    
     function initialize(uint8 _currentVersion) initializer public {
         CURRENT_VERSION=_currentVersion;
         __ERC20_init(name(), symbol());
