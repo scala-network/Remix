@@ -22,3 +22,5 @@ Currently the code is had coded using Brave make sure to use brave environment
 ## What have been done
 1. Standard stuffs like burn, mint and pausable
 2. Upgradeable so if we have contract to modify it will continue on previous contract
+3. Minting gasless(user don't pay) and vice versa (xlaMint and xlaMintGasless)
+4. So far burning needs gas (xlaBurn)
