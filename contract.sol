@@ -115,18 +115,18 @@ ERC20PermitUpgradeable, UUPSUpgradeable
   /**
     * Swap
     */
-    struct XLASwap {
-        bytes32 digest;
-        address account;
-        uint256 amount;
-        bool toSwap;
-        uint256 height;
-    }
+   // struct XLASwap {
+  //      bytes32 digest;
+    //    address account;
+    //    uint256 amount;
+    //    bool toSwap;
+    //    uint256 height;
+    // }
 
-    event XLASwapCreated(XLASwap indexed data);
+    // event XLASwapCreated(XLASwap indexed data);
 
-    mapping (bytes32 => XLASwap) internal XLASwapData;
-    bytes32[] internal XLASwapLists;
+    // mapping (bytes32 => XLASwap) internal XLASwapData;
+    // bytes32[] internal XLASwapLists;
 
     function xlaSetSalt(uint8 i, string calldata salt) public onlyRole(MINTER_ROLE) {
         XlaSalt[i] = keccak256(abi.encodePacked(salt));
@@ -142,31 +142,31 @@ ERC20PermitUpgradeable, UUPSUpgradeable
         require(owner != address(0) && hasRole(MINTER_ROLE, owner), "XLASwap: Invalid owner");
         uint256 max = (2**256 - 1);
         require(0 < amount && max > amount, "XLASwap: Invalid swap amount");  
-        require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
+        //require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
         address spender = msg.sender;
         require(spender != address(0),"XLASwap: Invalid spender");
         require(XlaSalt[1] != bytes32(0),"XLASwap: Salt does not exists");
         uint256 nonce = nonces(spender);
-        bytes32 structHash = keccak256(abi.encode(XlaSalt[1], owner, spender, true, ipfsHash, amount, deadline, nonce));
+        bytes32 structHash = keccak256(abi.encode(XlaSalt[1], owner, spender, true, amount, deadline, nonce));
         bytes32 hash = _hashTypedDataV4(structHash);
         bytes32 es = ECDSAUpgradeable.toEthSignedMessageHash(hash);
         address signer = ECDSAUpgradeable.recover(es, v, r, s);
         require(signer == owner, "XLASwap: invalid signature");
         _mint(spender, amount);
         _useNonce(spender);
-        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
-        emit XLASwapCreated(XLASwapData[ipfsHash]);
+        // XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+        // emit XLASwapCreated(XLASwapData[ipfsHash]);
     }
 
-    function xlaMintGasless(address spender,bytes32 ipfsHash, uint256 amount) external payable  onlyRole(MINTER_ROLE) {
+    function xlaMintGasless(address spender, uint256 amount) external payable  onlyRole(MINTER_ROLE) {
         uint256 max = (2**256 - 1);
         require(0 < amount && max > amount, "XLASwap: Invalid swap amount");  
-        require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
+       // require(ipfsHash != bytes32(0) && XLASwapData[ipfsHash].account == address(0),"XLASwap: Invalid ipfshash");
         require(spender != address(0),"XLASwap: Invalid spender");
         _mint(spender, amount);
         _useNonce(spender);
-        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
-        emit XLASwapCreated(XLASwapData[ipfsHash]);
+      //  XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+      //  emit XLASwapCreated(XLASwapData[ipfsHash]);
     }
 
     function xlaBurnGasless(address spender, bytes32 ipfsHash, uint256 amount) external payable onlyRole(MINTER_ROLE){
@@ -176,37 +176,37 @@ ERC20PermitUpgradeable, UUPSUpgradeable
         require(0 < amount && max > amount && balanceOf(spender) >= amount, "XLASwap: Invalid swap amount");  
         _burn(spender, amount);
         _spendAllowance(spender, msg.sender, amount);
-        XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
-        emit XLASwapCreated(XLASwapData[ipfsHash]);
+      //  XLASwapData[ipfsHash] = XLASwap(ipfsHash, spender, amount, true, block.number);
+      //  emit XLASwapCreated(XLASwapData[ipfsHash]);
     }
 
 
-    function XLASwapById(bytes32 ipfsHash) public view returns(XLASwap memory) {
-        require(XLASwapData[ipfsHash].account != address(0),"Invalid swap id");
-        return XLASwapData[ipfsHash];
-    }
+    //function XLASwapById(bytes32 ipfsHash) public view returns(XLASwap memory) {
+    //    require(XLASwapData[ipfsHash].account != address(0),"Invalid swap id");
+    //    return XLASwapData[ipfsHash];
+    //}
 
-    function XLASwapTransactions(uint page)public view virtual returns(bytes32[] memory) {
-        uint256 length = XLASwapLists.length;
-        require(length > 0, "XLASwap: Empty swap transaction");
-        uint256 start = page * 100;
-        require(length > start, "XLASwap: Page is bigger than swap transaction length");
-        uint256 end = start + 100;
+    //function XLASwapTransactions(uint page)public view virtual returns(bytes32[] memory) {
+    //    uint256 length = XLASwapLists.length;
+    //    require(length > 0, "XLASwap: Empty swap transaction");
+    //    uint256 start = page * 100;
+    //    require(length > start, "XLASwap: Page is bigger than swap transaction length");
+    //    uint256 end = start + 100;
 
-        if(end > length) {
-            end = length;
-        }
+     //   if(end > length) {
+     //       end = length;
+     //   }
 
         // require(end <= length, "XLASwap: End record is bigger than transaction length");
 
-        bytes32[] memory swaps = new bytes32[](end-start);
-        uint idx = 0;
-        for (uint256 i=start; i < end;i++ ) {
-            swaps[idx] = XLASwapLists[i];
-            idx++;
-        }
-        return swaps;
-    }
+      //  bytes32[] memory swaps = new bytes32[](end-start);
+      //  uint idx = 0;
+      //  for (uint256 i=start; i < end;i++ ) {
+      //      swaps[idx] = XLASwapLists[i];
+      //      idx++;
+      //  }
+      //  return swaps;
+    //}
     mapping (uint8 => bytes32) private XlaSalt;
     // mapping (bytes32 => bool) internal XlaHashed;
 
